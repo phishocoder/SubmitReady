@@ -48,12 +48,13 @@ class BlobStorageProvider implements StorageProvider {
     body: Buffer;
     contentType: string;
   }): Promise<StoredFile> {
-    const response = await put(params.key, params.body, {
-      access: "public",
+    const options = {
+      access: "public" as const,
       addRandomSuffix: false,
       contentType: params.contentType,
-      token: env.BLOB_READ_WRITE_TOKEN,
-    });
+      ...(env.BLOB_READ_WRITE_TOKEN ? { token: env.BLOB_READ_WRITE_TOKEN } : {}),
+    };
+    const response = await put(params.key, params.body, options);
 
     return {
       key: response.url,
@@ -131,9 +132,7 @@ export function getStorage(): StorageProvider {
     return storageSingleton;
   }
 
-  const shouldUseBlob =
-    (isBlobConfigured || process.env.VERCEL === "1") &&
-    Boolean(env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_READ_WRITE_TOKEN);
+  const shouldUseBlob = isBlobConfigured || process.env.VERCEL === "1";
 
   if (shouldUseBlob) {
     storageSingleton = new BlobStorageProvider();
