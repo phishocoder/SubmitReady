@@ -2,6 +2,8 @@ import Link from "next/link";
 import { ensureDatabaseReady, prisma } from "@/lib/db";
 import { getStripe } from "@/lib/services/stripe";
 
+export const dynamic = "force-dynamic";
+
 type PageProps = {
   searchParams: Promise<{ session_id?: string }>;
 };
