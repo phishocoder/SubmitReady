@@ -121,12 +121,35 @@ export async function extractReceiptData(
     attachmentImage = await normalizeImage(fileBuffer);
   }
 
-  const ocr = await runImageOcr(attachmentImage);
-  const parsed = parseFieldsFromText(ocr.text, ocr.confidence);
+  try {
+    const ocr = await runImageOcr(attachmentImage);
+    const parsed = parseFieldsFromText(ocr.text, ocr.confidence);
 
-  return {
-    ...parsed,
-    attachmentImage,
-    attachmentMimeType: "image/png",
-  };
+    return {
+      ...parsed,
+      attachmentImage,
+      attachmentMimeType: "image/png",
+    };
+  } catch (error) {
+    console.error("[ocr_error]", error);
+    return {
+      fields: {
+        vendor: null,
+        date: null,
+        totalCents: null,
+        currency: "USD",
+        category: null,
+      },
+      confidence: {
+        vendor: 0,
+        date: 0,
+        total: 0,
+      },
+      rawText: "",
+      overallConfidence: 0,
+      requiresReview: true,
+      attachmentImage,
+      attachmentMimeType: "image/png",
+    };
+  }
 }
