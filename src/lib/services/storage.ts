@@ -131,7 +131,11 @@ export function getStorage(): StorageProvider {
     return storageSingleton;
   }
 
-  if (isBlobConfigured) {
+  const shouldUseBlob =
+    (isBlobConfigured || process.env.VERCEL === "1") &&
+    Boolean(env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_READ_WRITE_TOKEN);
+
+  if (shouldUseBlob) {
     storageSingleton = new BlobStorageProvider();
     return storageSingleton;
   }
