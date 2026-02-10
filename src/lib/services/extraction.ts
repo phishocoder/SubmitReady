@@ -3,6 +3,7 @@ import { createWorker } from "tesseract.js";
 import type { ExtractionResult } from "@/types/document";
 
 const CONFIDENCE_THRESHOLD = 0.75;
+const OCR_TIMEOUT_MS = Number(process.env.OCR_TIMEOUT_MS ?? 20000);
 
 export type ExtractionWithAttachment = ExtractionResult & {
   attachmentImage: Buffer;
@@ -91,15 +92,14 @@ function parseFieldsFromText(text: string, overallConfidence: number): Extractio
 }
 
 async function runImageOcr(buffer: Buffer): Promise<{ text: string; confidence: number }> {
-  // Vercel serverless bundling can omit Tesseract node worker internals.
-  // Fall back to manual confirmation flow in that environment.
-  if (process.env.VERCEL === "1") {
-    return { text: "", confidence: 0 };
-  }
-
   const worker = await createWorker("eng");
   try {
-    const result = await worker.recognize(buffer);
+    const result = await Promise.race([
+      worker.recognize(buffer),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error(`OCR timeout after ${OCR_TIMEOUT_MS}ms`)), OCR_TIMEOUT_MS),
+      ),
+    ]);
     const confidence = Math.max(0, Math.min(1, result.data.confidence / 100));
     return { text: result.data.text, confidence };
   } finally {
@@ -112,7 +112,7 @@ async function pdfFirstPageToPng(pdfBuffer: Buffer): Promise<Buffer> {
 }
 
 async function normalizeImage(buffer: Buffer): Promise<Buffer> {
-  return sharp(buffer).png().toBuffer();
+  return sharp(buffer).rotate().grayscale().normalize().png().toBuffer();
 }
 
 export async function extractReceiptData(
