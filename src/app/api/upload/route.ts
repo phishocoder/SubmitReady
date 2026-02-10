@@ -1,6 +1,6 @@
 import { DocumentStatus } from "@prisma/client";
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { ensureDatabaseReady, prisma } from "@/lib/db";
 import { extractReceiptData } from "@/lib/services/extraction";
 import { determineStatus } from "@/lib/services/document";
 import { getStorage } from "@/lib/services/storage";
@@ -16,6 +16,7 @@ const ALLOWED_TYPES = new Set([
 ]);
 
 export async function POST(request: Request) {
+  await ensureDatabaseReady();
   try {
     const formData = await request.formData();
     const file = formData.get("receipt");

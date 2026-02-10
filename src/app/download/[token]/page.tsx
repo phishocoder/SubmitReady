@@ -1,11 +1,14 @@
 import Link from "next/link";
-import { prisma } from "@/lib/db";
+import { ensureDatabaseReady, prisma } from "@/lib/db";
 
 type PageProps = {
   params: Promise<{ token: string }>;
 };
 
-export default async function DownloadPage({ params }: PageProps) {
+export default async function DownloadPage({
+  params,
+}: PageProps) {
+  await ensureDatabaseReady();
   const { token } = await params;
   const document = await prisma.document.findFirst({
     where: {

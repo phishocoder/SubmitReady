@@ -1,5 +1,5 @@
 import { DocumentStatus } from "@prisma/client";
-import { prisma } from "@/lib/db";
+import { ensureDatabaseReady, prisma } from "@/lib/db";
 
 const CONFIDENCE_THRESHOLD = 0.75;
 
@@ -26,5 +26,6 @@ export function determineStatus(params: {
 }
 
 export async function getDocumentByToken(token: string) {
+  await ensureDatabaseReady();
   return prisma.document.findUnique({ where: { publicToken: token } });
 }

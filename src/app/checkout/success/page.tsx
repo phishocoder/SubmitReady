@@ -1,12 +1,15 @@
 import Link from "next/link";
-import { prisma } from "@/lib/db";
+import { ensureDatabaseReady, prisma } from "@/lib/db";
 import { getStripe } from "@/lib/services/stripe";
 
 type PageProps = {
   searchParams: Promise<{ session_id?: string }>;
 };
 
-export default async function CheckoutSuccessPage({ searchParams }: PageProps) {
+export default async function CheckoutSuccessPage({
+  searchParams,
+}: PageProps) {
+  await ensureDatabaseReady();
   const { session_id: sessionId } = await searchParams;
 
   if (!sessionId) {
