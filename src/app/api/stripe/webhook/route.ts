@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
-import { ensureDatabaseReady, prisma } from "@/lib/db";
+import { prisma } from "@/lib/db";
 import { env } from "@/lib/env";
 import { sendDownloadEmail } from "@/lib/services/email";
 import { verifyStripeEvent } from "@/lib/services/stripe";
 import { randomToken } from "@/lib/token";
 
 export async function POST(request: Request) {
-  await ensureDatabaseReady();
-  const signature = request.headers.get("stripe-signature");
+    const signature = request.headers.get("stripe-signature");
 
   if (!signature) {
     return NextResponse.json({ error: "Missing stripe signature." }, { status: 400 });

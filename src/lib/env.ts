@@ -2,10 +2,11 @@ import { z } from "zod";
 
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
-  DATABASE_URL: z.string().default("file:/tmp/submitready/dev.db"),
+  DATABASE_URL: z.string().default("postgresql://postgres:postgres@localhost:5432/submitready"),
   APP_URL: z.string().url().default("http://localhost:3000"),
-  STORAGE_DRIVER: z.enum(["local", "s3"]).default("local"),
+  STORAGE_DRIVER: z.enum(["local", "s3", "blob"]).default("local"),
   LOCAL_STORAGE_DIR: z.string().default("/tmp/submitready"),
+  BLOB_READ_WRITE_TOKEN: z.string().optional(),
   S3_BUCKET: z.string().optional(),
   S3_REGION: z.string().optional(),
   S3_ENDPOINT: z.string().optional(),
@@ -22,6 +23,9 @@ const envSchema = z.object({
 });
 
 export const env = envSchema.parse(process.env);
+
+export const isBlobConfigured =
+  env.STORAGE_DRIVER === "blob" && Boolean(env.BLOB_READ_WRITE_TOKEN || process.env.VERCEL);
 
 export const isS3Configured =
   env.STORAGE_DRIVER === "s3" &&

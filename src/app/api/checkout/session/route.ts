@@ -1,7 +1,7 @@
 import { DocumentStatus } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { ensureDatabaseReady, prisma } from "@/lib/db";
+import { prisma } from "@/lib/db";
 import { env } from "@/lib/env";
 import { getStripe } from "@/lib/services/stripe";
 
@@ -11,8 +11,7 @@ const checkoutSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  await ensureDatabaseReady();
-  try {
+    try {
     const json = await request.json();
     const parsed = checkoutSchema.safeParse(json);
     if (!parsed.success) {

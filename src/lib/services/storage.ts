@@ -1,12 +1,13 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { Readable } from "node:stream";
+import { put } from "@vercel/blob";
 import {
   GetObjectCommand,
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
-import { env, isS3Configured } from "@/lib/env";
+import { env, isBlobConfigured, isS3Configured } from "@/lib/env";
 
 type StoredFile = {
   key: string;
@@ -38,6 +39,35 @@ class LocalStorageProvider implements StorageProvider {
   async read(params: { key: string }): Promise<Buffer> {
     const filePath = path.join(env.LOCAL_STORAGE_DIR, params.key);
     return fs.readFile(filePath);
+  }
+}
+
+class BlobStorageProvider implements StorageProvider {
+  async put(params: {
+    key: string;
+    body: Buffer;
+    contentType: string;
+  }): Promise<StoredFile> {
+    const response = await put(params.key, params.body, {
+      access: "public",
+      addRandomSuffix: false,
+      contentType: params.contentType,
+      token: env.BLOB_READ_WRITE_TOKEN,
+    });
+
+    return {
+      key: response.url,
+      mimeType: params.contentType,
+    };
+  }
+
+  async read(params: { key: string }): Promise<Buffer> {
+    const response = await fetch(params.key, { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error(`Blob read failed with status ${response.status}`);
+    }
+
+    return Buffer.from(await response.arrayBuffer());
   }
 }
 
@@ -98,6 +128,11 @@ let storageSingleton: StorageProvider | null = null;
 
 export function getStorage(): StorageProvider {
   if (storageSingleton) {
+    return storageSingleton;
+  }
+
+  if (isBlobConfigured) {
+    storageSingleton = new BlobStorageProvider();
     return storageSingleton;
   }
 

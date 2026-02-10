@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { ensureDatabaseReady, prisma } from "@/lib/db";
+import { prisma } from "@/lib/db";
 import { confidenceLabel } from "@/lib/utils";
 import { PreviewForm } from "@/components/preview-form";
 
@@ -17,8 +17,7 @@ function formatTotal(totalCents: number | null): string {
 export default async function PreviewPage({
   params,
 }: PageProps) {
-  await ensureDatabaseReady();
-  const { token } = await params;
+    const { token } = await params;
 
   const document = await prisma.document.findUnique({
     where: { publicToken: token },

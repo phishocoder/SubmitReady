@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ensureDatabaseReady, prisma } from "@/lib/db";
+import { prisma } from "@/lib/db";
 import { getStripe } from "@/lib/services/stripe";
 
 export const dynamic = "force-dynamic";
@@ -11,8 +11,7 @@ type PageProps = {
 export default async function CheckoutSuccessPage({
   searchParams,
 }: PageProps) {
-  await ensureDatabaseReady();
-  const { session_id: sessionId } = await searchParams;
+    const { session_id: sessionId } = await searchParams;
 
   if (!sessionId) {
     return (

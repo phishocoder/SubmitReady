@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ensureDatabaseReady, prisma } from "@/lib/db";
+import { prisma } from "@/lib/db";
 
 type PageProps = {
   params: Promise<{ token: string }>;
@@ -8,8 +8,7 @@ type PageProps = {
 export default async function DownloadPage({
   params,
 }: PageProps) {
-  await ensureDatabaseReady();
-  const { token } = await params;
+    const { token } = await params;
   const document = await prisma.document.findFirst({
     where: {
       downloadToken: token,

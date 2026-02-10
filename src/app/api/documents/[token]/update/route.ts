@@ -1,6 +1,6 @@
 import { DocumentStatus } from "@prisma/client";
 import { NextResponse } from "next/server";
-import { ensureDatabaseReady, prisma } from "@/lib/db";
+import { prisma } from "@/lib/db";
 import { determineStatus } from "@/lib/services/document";
 import {
   isValidDateISO,
@@ -16,8 +16,7 @@ export async function POST(
   request: Request,
   { params }: RouteParams,
 ) {
-  await ensureDatabaseReady();
-  const { token } = await params;
+    const { token } = await params;
 
   try {
     const body = await request.json();

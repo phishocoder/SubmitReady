@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { ensureDatabaseReady, prisma } from "@/lib/db";
+import { prisma } from "@/lib/db";
 import { generateReimbursementPdf } from "@/lib/services/pdf";
 import { getStorage } from "@/lib/services/storage";
 
@@ -11,8 +11,7 @@ export async function GET(
   _request: Request,
   { params }: RouteParams,
 ) {
-  await ensureDatabaseReady();
-  const { token } = await params;
+    const { token } = await params;
 
   const document = await prisma.document.findFirst({
     where: {
