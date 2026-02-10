@@ -91,6 +91,12 @@ function parseFieldsFromText(text: string, overallConfidence: number): Extractio
 }
 
 async function runImageOcr(buffer: Buffer): Promise<{ text: string; confidence: number }> {
+  // Vercel serverless bundling can omit Tesseract node worker internals.
+  // Fall back to manual confirmation flow in that environment.
+  if (process.env.VERCEL === "1") {
+    return { text: "", confidence: 0 };
+  }
+
   const worker = await createWorker("eng");
   try {
     const result = await worker.recognize(buffer);
