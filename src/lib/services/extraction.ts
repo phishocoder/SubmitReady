@@ -5,6 +5,9 @@ import type { ExtractionResult } from "@/types/document";
 const CONFIDENCE_THRESHOLD = 0.75;
 const OCR_TIMEOUT_MS = Number(process.env.OCR_TIMEOUT_MS ?? 20000);
 const ENABLE_VERCEL_OCR = process.env.ENABLE_VERCEL_OCR === "1";
+const OCR_PROVIDER = (process.env.OCR_PROVIDER ?? "auto").toLowerCase();
+const OCR_SPACE_API_KEY = process.env.OCR_SPACE_API_KEY ?? "";
+const OCR_SPACE_ENDPOINT = process.env.OCR_SPACE_ENDPOINT ?? "https://api.ocr.space/parse/image";
 
 export type ExtractionWithAttachment = ExtractionResult & {
   attachmentImage: Buffer;
@@ -93,12 +96,32 @@ function parseFieldsFromText(text: string, overallConfidence: number): Extractio
 }
 
 async function runImageOcr(buffer: Buffer): Promise<{ text: string; confidence: number }> {
-  // Tesseract's Node worker bundle is not reliably available in Vercel serverless.
-  // Default to manual confirmation path unless explicitly opted in.
-  if (process.env.VERCEL === "1" && !ENABLE_VERCEL_OCR) {
+  const isVercel = process.env.VERCEL === "1";
+  const shouldUseOcrSpace =
+    OCR_PROVIDER === "ocr_space" || (OCR_PROVIDER === "auto" && isVercel && Boolean(OCR_SPACE_API_KEY));
+
+  if (OCR_PROVIDER === "none") {
     return { text: "", confidence: 0 };
   }
 
+  if (shouldUseOcrSpace) {
+    return runOcrSpace(buffer);
+  }
+
+  // Tesseract's Node worker bundle is not reliably available in Vercel serverless.
+  // Default to manual confirmation path unless explicitly opted in.
+  if (isVercel && !ENABLE_VERCEL_OCR) {
+    return { text: "", confidence: 0 };
+  }
+
+  if (OCR_PROVIDER !== "auto" && OCR_PROVIDER !== "tesseract") {
+    return { text: "", confidence: 0 };
+  }
+
+  return runTesseract(buffer);
+}
+
+async function runTesseract(buffer: Buffer): Promise<{ text: string; confidence: number }> {
   const worker = await createWorker("eng");
   try {
     const result = await Promise.race([
@@ -111,6 +134,77 @@ async function runImageOcr(buffer: Buffer): Promise<{ text: string; confidence: 
     return { text: result.data.text, confidence };
   } finally {
     await worker.terminate();
+  }
+}
+
+async function runOcrSpace(buffer: Buffer): Promise<{ text: string; confidence: number }> {
+  if (!OCR_SPACE_API_KEY) {
+    return { text: "", confidence: 0 };
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), OCR_TIMEOUT_MS);
+
+  try {
+    const formData = new FormData();
+    formData.append("apikey", OCR_SPACE_API_KEY);
+    formData.append("language", "eng");
+    formData.append("isOverlayRequired", "true");
+    formData.append("OCREngine", "2");
+    formData.append("file", new Blob([new Uint8Array(buffer)], { type: "image/png" }), "receipt.png");
+
+    const response = await fetch(OCR_SPACE_ENDPOINT, {
+      method: "POST",
+      body: formData,
+      signal: controller.signal,
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      throw new Error(`OCR.space request failed with ${response.status}`);
+    }
+
+    const data = await response.json() as {
+      IsErroredOnProcessing?: boolean;
+      ErrorMessage?: string[] | string;
+      ParsedResults?: Array<{
+        ParsedText?: string;
+        TextOverlay?: {
+          Lines?: Array<{
+            Words?: Array<{ WordText?: string; Confidence?: number }>;
+          }>;
+        };
+      }>;
+    };
+
+    if (data.IsErroredOnProcessing) {
+      const message = Array.isArray(data.ErrorMessage)
+        ? data.ErrorMessage.join("; ")
+        : (data.ErrorMessage ?? "Unknown OCR.space processing error");
+      throw new Error(message);
+    }
+
+    const parsedText = data.ParsedResults?.[0]?.ParsedText?.trim() ?? "";
+    const confidences =
+      data.ParsedResults?.[0]?.TextOverlay?.Lines?.flatMap((line) =>
+        (line.Words ?? [])
+          .map((word) => Number(word.Confidence))
+          .filter((value) => Number.isFinite(value) && value >= 0),
+      ) ?? [];
+
+    const averageConfidence =
+      confidences.length > 0
+        ? confidences.reduce((sum, value) => sum + value, 0) / confidences.length / 100
+        : parsedText.length > 0
+          ? 0.65
+          : 0;
+
+    return {
+      text: parsedText,
+      confidence: Math.max(0, Math.min(1, averageConfidence)),
+    };
+  } finally {
+    clearTimeout(timeout);
   }
 }
 

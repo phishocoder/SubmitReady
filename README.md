@@ -7,7 +7,7 @@ SubmitReady converts one uploaded receipt (image or PDF) into a reimbursement-re
 - Next.js App Router + TypeScript + Tailwind
 - Prisma + Postgres
 - Stripe Checkout + webhook unlock
-- OCR extraction: Tesseract.js (local) with graceful fallback to manual review on Vercel
+- OCR extraction: pluggable provider (`tesseract` local, optional hosted `OCR.space` on Vercel)
 - Server-side PDF generation with `pdf-lib`
 - Storage: local (dev), Vercel Blob (hosted), or S3-compatible
 
@@ -64,7 +64,23 @@ Set these in your Vercel project settings:
 - `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`
 - `STRIPE_PRICE_ID`
+- `OCR_PROVIDER=auto`
+- `OCR_SPACE_API_KEY` (required for hosted OCR extraction on Vercel)
 - Optional SMTP vars for outbound email
+
+### OCR provider behavior
+
+- `OCR_PROVIDER=auto` (recommended):
+  - Local dev: uses Tesseract.
+  - Vercel: uses OCR.space when `OCR_SPACE_API_KEY` is set, otherwise falls back to manual confirmation.
+- `OCR_PROVIDER=tesseract`: force Tesseract worker (not recommended on Vercel serverless).
+- `OCR_PROVIDER=ocr_space`: force OCR.space API.
+- `OCR_PROVIDER=none`: disable OCR and require manual entry.
+
+Optional tuning:
+
+- `OCR_TIMEOUT_MS` (default `20000`)
+- `OCR_SPACE_ENDPOINT` (default `https://api.ocr.space/parse/image`)
 
 ## Stripe test mode setup
 
