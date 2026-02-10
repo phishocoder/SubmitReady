@@ -4,6 +4,7 @@ import type { ExtractionResult } from "@/types/document";
 
 const CONFIDENCE_THRESHOLD = 0.75;
 const OCR_TIMEOUT_MS = Number(process.env.OCR_TIMEOUT_MS ?? 20000);
+const ENABLE_VERCEL_OCR = process.env.ENABLE_VERCEL_OCR === "1";
 
 export type ExtractionWithAttachment = ExtractionResult & {
   attachmentImage: Buffer;
@@ -92,6 +93,12 @@ function parseFieldsFromText(text: string, overallConfidence: number): Extractio
 }
 
 async function runImageOcr(buffer: Buffer): Promise<{ text: string; confidence: number }> {
+  // Tesseract's Node worker bundle is not reliably available in Vercel serverless.
+  // Default to manual confirmation path unless explicitly opted in.
+  if (process.env.VERCEL === "1" && !ENABLE_VERCEL_OCR) {
+    return { text: "", confidence: 0 };
+  }
+
   const worker = await createWorker("eng");
   try {
     const result = await Promise.race([
