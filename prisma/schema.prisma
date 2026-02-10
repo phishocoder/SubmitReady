@@ -1,0 +1,42 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum DocumentStatus {
+  UPLOADED
+  NEEDS_REVIEW
+  READY
+  PAID
+}
+
+model Document {
+  id                      String         @id @default(cuid())
+  publicToken             String         @unique
+  status                  DocumentStatus @default(UPLOADED)
+  email                   String?
+  receiptKey              String
+  receiptMimeType         String
+  attachmentImageKey      String
+  attachmentImageMimeType String         @default("image/png")
+  vendor                  String?
+  date                    String?
+  totalCents              Int?
+  currency                String         @default("USD")
+  category                String?
+  vendorConfidence        Float?
+  dateConfidence          Float?
+  totalConfidence         Float?
+  extractionRaw           String?
+  checkoutSessionId       String?        @unique
+  checkoutPaymentIntentId String?
+  paidAt                  DateTime?
+  downloadToken           String?        @unique
+  downloadTokenExpiresAt  DateTime?
+  createdAt               DateTime       @default(now())
+  updatedAt               DateTime       @updatedAt
+}
