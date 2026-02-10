@@ -11,14 +11,14 @@ export async function GET(
   _request: Request,
   { params }: RouteParams,
 ) {
-    const { token } = await params;
+  const { token } = await params;
 
   const document = await prisma.document.findUnique({
     where: { publicToken: token },
   });
 
-  if (!document || !document.vendor || !document.date || !document.totalCents) {
-    return NextResponse.json({ error: "Document not ready for preview." }, { status: 404 });
+  if (!document) {
+    return NextResponse.json({ error: "Document not found." }, { status: 404 });
   }
 
   try {
@@ -26,9 +26,9 @@ export async function GET(
     const attachmentImage = await storage.read({ key: document.attachmentImageKey });
 
     const pdf = await generateReimbursementPdf({
-      vendor: document.vendor,
-      date: document.date,
-      totalCents: document.totalCents,
+      vendor: document.vendor || "Pending confirmation",
+      date: document.date || "1970-01-01",
+      totalCents: document.totalCents ?? 0,
       currency: document.currency,
       category: document.category,
       receiptBuffer: attachmentImage,
