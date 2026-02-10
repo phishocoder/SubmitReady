@@ -45,7 +45,7 @@ export async function POST(request: Request) {
     const originalExt = file.type === "application/pdf" ? "pdf" : "bin";
     const originalKey = `receipts/${publicToken}/original.${originalExt}`;
 
-    await storage.put({
+    const storedOriginal = await storage.put({
       key: originalKey,
       body: fileBuffer,
       contentType: file.type,
@@ -54,7 +54,7 @@ export async function POST(request: Request) {
     const extraction = await extractReceiptData(fileBuffer, file.type);
 
     const attachmentKey = `receipts/${publicToken}/attachment.png`;
-    await storage.put({
+    const storedAttachment = await storage.put({
       key: attachmentKey,
       body: extraction.attachmentImage,
       contentType: extraction.attachmentMimeType,
@@ -79,9 +79,9 @@ export async function POST(request: Request) {
     const document = await prisma.document.create({
       data: {
         publicToken,
-        receiptKey: originalKey,
+        receiptKey: storedOriginal.key,
         receiptMimeType: file.type,
-        attachmentImageKey: attachmentKey,
+        attachmentImageKey: storedAttachment.key,
         attachmentImageMimeType: extraction.attachmentMimeType,
         vendor: extraction.fields.vendor,
         date: extraction.fields.date,
