@@ -8,6 +8,7 @@ const ENABLE_VERCEL_OCR = process.env.ENABLE_VERCEL_OCR === "1";
 const OCR_PROVIDER = (process.env.OCR_PROVIDER ?? "auto").toLowerCase();
 const OCR_SPACE_API_KEY = process.env.OCR_SPACE_API_KEY ?? "";
 const OCR_SPACE_ENDPOINT = process.env.OCR_SPACE_ENDPOINT ?? "https://api.ocr.space/parse/image";
+const OCR_SPACE_MAX_BYTES = Number(process.env.OCR_SPACE_MAX_BYTES ?? 950 * 1024);
 
 export type ExtractionWithAttachment = ExtractionResult & {
   attachmentImage: Buffer;
@@ -146,12 +147,13 @@ async function runOcrSpace(buffer: Buffer): Promise<{ text: string; confidence: 
   const timeout = setTimeout(() => controller.abort(), OCR_TIMEOUT_MS);
 
   try {
+    const ocrBuffer = await prepareImageForOcrSpace(buffer);
     const formData = new FormData();
     formData.append("apikey", OCR_SPACE_API_KEY);
     formData.append("language", "eng");
     formData.append("isOverlayRequired", "true");
     formData.append("OCREngine", "2");
-    formData.append("file", new Blob([new Uint8Array(buffer)], { type: "image/png" }), "receipt.png");
+    formData.append("file", new Blob([new Uint8Array(ocrBuffer)], { type: "image/jpeg" }), "receipt.jpg");
 
     const response = await fetch(OCR_SPACE_ENDPOINT, {
       method: "POST",
@@ -206,6 +208,42 @@ async function runOcrSpace(buffer: Buffer): Promise<{ text: string; confidence: 
   } finally {
     clearTimeout(timeout);
   }
+}
+
+async function prepareImageForOcrSpace(buffer: Buffer): Promise<Buffer> {
+  let maxDimension = 2200;
+  let quality = 82;
+
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    const candidate = await sharp(buffer)
+      .rotate()
+      .resize({
+        width: maxDimension,
+        height: maxDimension,
+        fit: "inside",
+        withoutEnlargement: true,
+      })
+      .jpeg({ quality, mozjpeg: true })
+      .toBuffer();
+
+    if (candidate.byteLength <= OCR_SPACE_MAX_BYTES) {
+      return candidate;
+    }
+
+    quality = Math.max(45, quality - 8);
+    maxDimension = Math.max(1200, Math.floor(maxDimension * 0.85));
+  }
+
+  return sharp(buffer)
+    .rotate()
+    .resize({
+      width: 1200,
+      height: 1200,
+      fit: "inside",
+      withoutEnlargement: true,
+    })
+    .jpeg({ quality: 42, mozjpeg: true })
+    .toBuffer();
 }
 
 async function pdfFirstPageToPng(pdfBuffer: Buffer): Promise<Buffer> {
